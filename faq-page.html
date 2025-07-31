@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - Decoy Detect</title>
+    <!-- Tailwind CSS CDN for modern and responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            padding-left: 1rem; /* Added horizontal padding to the body */
+            padding-right: 1rem; /* Added horizontal padding to the body */
+        }
+        .faq-container {
+            width: 100%; /* Changed to 100% to fill available width */
+            max-width: 1280px; /* Increased max-width further (Tailwind's max-w-7xl) */
+            background-color: #fff;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: left;
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .faq-item {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1rem;
+        }
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+        .faq-question {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .faq-answer {
+            font-size: 1rem;
+            color: #555;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation Bar (similar to main page) -->
+    <nav class="w-full bg-blue-700 p-4 shadow-md">
+        <div class="max-w-full px-4 flex items-center justify-between">
+            <a href="index.html" class="flex items-center text-white text-2xl font-bold rounded-lg px-3 py-1 hover:bg-blue-600 transition duration-300">
+                <img
+                    src="https://github.com/DawnJoK/Decoy-Detect/blob/main/logo/WhatsApp%20Image%202025-07-20%20at%2013.17.57.jpeg?raw=true"
+                    alt="Decoy Detect Logo"
+                    class="h-20 w-20 mr-2 object-contain rounded-lg"
+                >
+                Decoy Detect
+            </a>
+            <a href="index.html" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition duration-300 ease-in-out">
+                Back to Search
+            </a>
+        </div>
+    </nav>
+
+    <div class="faq-container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">Frequently Asked Questions</h1>
+
+        <div class="faq-item">
+            <h2 class="faq-question">What is Decoy Detect?</h2>
+            <p class="faq-answer">Decoy Detect is a tool designed to analyze URLs and provide a trust score, helping users identify potentially malicious or untrustworthy websites. It aims to protect you from phishing, scams, and other online threats.</p>
+        </div>
+
+        <div class="faq-item">
+            <h2 class="faq-question">How is the Trust Score calculated?</h2>
+            <p class="faq-answer">The trust score is determined by analyzing various factors associated with the URL, such as domain age, SSL certificate validity, presence in blacklists, content analysis, and community feedback. A higher score indicates greater trustworthiness.</p>
+        </div>
+
+        <div class="faq-item">
+            <h2 class="faq-question">Can I submit a review for a URL?</h2>
+            <p class="faq-answer">Yes, absolutely! We encourage users to share their experiences and insights by submitting reviews. This helps improve the accuracy of our trust scores and benefits the entire community. Look for the "Add a review" link in the Community Reviews section.</p>
+        </div>
+
+        <div class="faq-item">
+            <h2 class="faq-question">What should I do if a URL has a low trust score?</h2>
+            <p class="faq-answer">If a URL receives a low trust score, it is highly recommended to exercise extreme caution. Avoid entering personal information, clicking on links, or downloading files from such sites. It might indicate a phishing attempt or a malicious website.</p>
+        </div>
+
+        <div class="faq-item">
+            <h2 class="faq-question">Is Decoy Detect always accurate?</h2>
+            <p class="faq-answer">While Decoy Detect strives for high accuracy, no system is foolproof. New threats emerge constantly. Always combine our trust score with your own judgment and other security practices. If something feels off, it's best to err on the side of caution.</p>
+        </div>
+    </div>
+
+</body>
+</html>

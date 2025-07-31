@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Search UI</title>
+    <!-- Tailwind CSS CDN for modern and responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles to ensure the Inter font is used and for general body styling */
+        body {
+            font-family: "Inter", sans-serif;
+            /* Initial background color for the body, will be dynamically changed by JS */
+            background-color: #f0f2f5;
+            display: flex; /* Use flexbox for centering content */
+            flex-direction: column; /* Arrange items vertically */
+            justify-content: flex-start; /* Align items to the start of the cross axis */
+            align-items: center; /* Center horizontally */
+            min-height: 100vh; /* Full viewport height */
+            margin: 0; /* Remove default body margin */
+            padding: 0; /* Remove default body padding */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+            transition: background-color 0.5s ease; /* Smooth transition for background color changes */
+            padding-bottom: 2rem; /* Adjusted padding as fixed bar is removed */
+            padding-left: 1rem; /* Added horizontal padding for overall layout */
+            padding-right: 1rem; /* Added horizontal padding for overall layout */
+        }
+
+        /* Adjusting the search container for proper spacing with the nav bar */
+        .search-container {
+            margin-top: 2rem; /* Add margin to separate from nav bar */
+            margin-bottom: 2rem; /* Add margin to separate from potential scroll content */
+            width: 100%; /* Ensure it takes full width within its padding */
+            max-width: 1024px; /* Max-width for the main content card (Tailwind's max-w-5xl) */
+        }
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: transparent; /* Remains transparent for the overlay itself */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top of everything */
+            backdrop-filter: blur(8px); /* Added blur effect to the background */
+            -webkit-backdrop-filter: blur(8px); /* For Safari support */
+        }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            position: relative;
+            max-width: 50%; /* Increased max-width for the modal content */
+            max-height: 90%;
+            overflow: auto; /* Allow scrolling if content is too large */
+        }
+
+        .modal-close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close-button:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="w-full bg-blue-700 p-4 shadow-md">
+        <div class="max-w-full px-4 flex items-center justify-between">
+            <!-- Logo and Site Name - Now clickable -->
+            <a href="#" id="logoLink" class="flex items-center text-white text-2xl font-bold rounded-lg px-3 py-1 hover:bg-blue-600 transition duration-300">
+                <!-- Logo Image -->
+                <img
+                    src="https://raw.githubusercontent.com/DawnJoK/Decoy-Detect/refs/heads/main/screenshot/Gemini_Generated_Image_gcngw9gcngw9gcng.png"
+                    alt="Decoy Detect Logo"
+                    class="h-20 w-20 mr-2 object-contain rounded-lg"
+                    onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';"
+                >
+                Decoy Detect
+            </a>
+            <!-- Navigation Buttons -->
+            <div class="flex items-center space-x-4">
+                <!-- Tutorial Button -->
+                <button
+                    id="tutorialButton"
+                    class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Tutorial
+                </button>
+                <!-- Help Button -->
+                <button
+                    id="helpButton"
+                    class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Help
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main container for the search interface -->
+    <div class="search-container bg-white p-8 rounded-xl shadow-lg text-center">
+        <!-- Title for the search box -->
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6">Paste a URL to search</h1>
+
+        <!-- Input group for the URL input and search button -->
+        <div class="input-group flex flex-col sm:flex-row gap-4 mb-6">
+            <!-- URL input field -->
+            <input
+                type="url"
+                id="urlInput"
+                class="url-input flex-grow p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-300 ease-in-out"
+                placeholder="e.g., https://play.google.com/store/apps/details?id=com.example.app"
+            >
+            <!-- Search button -->
+            <button
+                id="searchButton"
+                class="search-button bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105"
+            >
+                Search
+            </button>
+        </div>
+
+        <!-- Results container, initially hidden -->
+        <div id="resultsBox" class="hidden bg-gray-50 p-6 rounded-lg border border-gray-200 text-left mt-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Analysis Results</h2>
+            <div class="mb-4">
+                <p class="text-lg font-medium text-gray-800">Trust Score: <span id="trustScore" class="text-blue-600 font-bold">--</span>/100</p>
+            </div>
+            <div>
+                <p class="text-lg font-medium text-gray-800 mb-2">Note:</p>
+                <textarea
+                    id="commentSection"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-300 ease-in-out"
+                    rows="5"
+                    readonly
+                ></textarea>
+            </div>
+        </div>
+
+        <!-- Community Reviews Card -->
+        <div id="reviewsCard" class="hidden bg-white p-8 rounded-xl shadow-lg mt-6 text-left">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Community Reviews</h3>
+            <div id="reviewsList" class="mb-4">
+                <!-- Placeholder for reviews. In a real application, these would be loaded dynamically. -->
+                <p class="text-gray-600">No reviews yet. Be the first to add one!</p>
+            </div>
+            <p class="text-gray-600 mt-2">
+                <a href="#" id="addReviewLink" class="text-blue-600 hover:underline font-medium">Click here to add a review</a>
+            </p>
+
+            <!-- Review Input Section - Initially Hidden -->
+            <div id="reviewInputSection" class="hidden mt-4">
+                <textarea
+                    id="userReviewInput"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-300 ease-in-out resize-y"
+                    rows="4"
+                    placeholder="Type your review here..."
+                ></textarea>
+                <button
+                    id="submitReviewButton"
+                    class="mt-3 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Submit Review
+                </button>
+                <button
+                    id="cancelReviewButton"
+                    class="mt-3 ml-2 bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logo Modal Structure - Initially Hidden -->
+    <div id="logoModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="closeModalButton" class="modal-close-button">&times;</button>
+            <img
+                src="https://raw.githubusercontent.com/DawnJoK/Decoy-Detect/refs/heads/main/screenshot/Gemini_Generated_Image_gcngw9gcngw9gcng.png"
+                alt="Decoy Detect Logo"
+                class="w-1/2 h-1/2 mx-auto object-contain rounded-lg"
+                onerror="this.onerror=null;this.src='https://placehold.co/160x160/cccccc/333333?text=Logo';"
+            >
+            <!-- Removed h2 and p tags -->
+        </div>
+    </div>
+
+    <script>
+        // Wrap all JavaScript code inside DOMContentLoaded to ensure the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get references to HTML elements
+            const urlInput = document.getElementById('urlInput');
+            const searchButton = document.getElementById('searchButton');
+            const resultsBox = document.getElementById('resultsBox');
+            const trustScoreDisplay = document.getElementById('trustScore');
+            const commentSection = document.getElementById('commentSection');
+            const body = document.body; // Reference to the body element
+            const reviewsCard = document.getElementById('reviewsCard'); // Reference to the new reviews card
+            const helpButton = document.getElementById('helpButton');
+            const tutorialButton = document.getElementById('tutorialButton'); // Get the new tutorial button
+            const logoLink = document.getElementById('logoLink'); // Get the logo link
+            const logoModal = document.getElementById('logoModal'); // Get the modal overlay
+            const closeModalButton = document.getElementById('closeModalButton'); // Get the modal close button
+
+            // New elements for review functionality
+            const addReviewLink = document.getElementById('addReviewLink');
+            const reviewInputSection = document.getElementById('reviewInputSection');
+            const userReviewInput = document.getElementById('userReviewInput');
+            const submitReviewButton = document.getElementById('submitReviewButton');
+            const cancelReviewButton = document.getElementById('cancelReviewButton');
+            const reviewsList = document.getElementById('reviewsList');
+
+            // Define the Flask backend URL
+            const FLASK_API_URL = 'http://127.0.0.1:5000/predict';
+
+            // Function to clear all existing color classes
+            function clearColors() {
+                const colorClasses = ['bg-red-700', 'bg-orange-500', 'bg-green-700', 'bg-f0f2f5',
+                                      'text-red-600', 'text-orange-800', 'text-green-300', 'text-blue-600', 'text-white'];
+                body.classList.remove(...colorClasses);
+                trustScoreDisplay.classList.remove(...colorClasses);
+            }
+
+
+            // Add an event listener to the Help button
+            helpButton.addEventListener('click', () => {
+                window.location.href = 'faq-page.html';
+            });
+
+            // Add an event listener to the Tutorial button
+            tutorialButton.addEventListener('click', () => {
+                window.location.href = 'tutorial-page.html';
+            });
+
+            // Add event listener to the Logo link to open the modal
+            logoLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                logoModal.classList.remove('hidden');
+            });
+
+            // Add event listener to the modal close button
+            closeModalButton.addEventListener('click', () => {
+                logoModal.classList.add('hidden');
+            });
+
+            // Optional: Close modal if user clicks outside the content
+            logoModal.addEventListener('click', (event) => {
+                if (event.target === logoModal) {
+                    logoModal.classList.add('hidden');
+                }
+            });
+
+            // Add event listener to the search button
+            searchButton.addEventListener('click', async () => {
+                const url = urlInput.value.trim();
+
+                if (url === '') {
+                    clearColors(); // Clear colors
+                    body.classList.add('bg-f0f2f5'); // Revert to initial body background
+                    resultsBox.classList.remove('bg-red-100', 'bg-yellow-100', 'bg-green-100');
+                    resultsBox.classList.add('bg-gray-50');
+                    commentSection.value = 'Please enter a URL to analyze.';
+                    trustScoreDisplay.textContent = '--';
+                    trustScoreDisplay.classList.add('text-blue-600'); // Default color
+                    resultsBox.classList.remove('hidden');
+                    reviewsCard.classList.add('hidden');
+                    return;
+                }
+
+                searchButton.textContent = 'Analyzing...';
+                searchButton.disabled = true;
+                searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+                resultsBox.classList.add('hidden');
+                reviewsCard.classList.add('hidden');
+
+                clearColors(); // Clear colors before fetching
+                body.classList.add('bg-f0f2f5'); // Default background while loading
+                resultsBox.classList.remove('bg-red-100', 'bg-yellow-100', 'bg-green-100', 'bg-gray-50');
+                resultsBox.classList.add('bg-white');
+                trustScoreDisplay.classList.add('text-blue-600'); // Default color while loading
+
+                try {
+                    const response = await fetch(FLASK_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ url: url }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        const trustScore = data.trust_score;
+                        const recommendation = data.recommendation;
+                        const recommendationCategory = data.recommendation_category; // Get the new category
+
+                        trustScoreDisplay.textContent = trustScore;
+                        commentSection.value = recommendation;
+
+                        resultsBox.classList.remove('hidden');
+                        reviewsCard.classList.remove('hidden');
+
+                        // --- Logic for changing BODY background color and trust score text color based on recommendationCategory ---
+                        clearColors(); // Clear all colors before applying new ones
+
+                        if (recommendationCategory === "RED") {
+                            body.classList.add('bg-red-700');
+                            trustScoreDisplay.classList.add('text-red-600');
+                        } else if (recommendationCategory === "ORANGE") {
+                            body.classList.add('bg-orange-500');
+                            trustScoreDisplay.classList.add('text-orange-800');
+                        } else { // GREEN
+                            body.classList.add('bg-green-700');
+                            trustScoreDisplay.classList.add('text-green-300');
+                        }
+                    } else {
+                        commentSection.value = `Error: ${data.error || 'Something went wrong.'} ${data.details || ''}`;
+                        trustScoreDisplay.textContent = '--';
+                        clearColors(); // Clear colors on error
+                        body.classList.add('bg-f0f2f5');
+                        resultsBox.classList.remove('hidden');
+                        reviewsCard.classList.add('hidden');
+                    }
+                } catch (error) {
+                    commentSection.value = `Network Error: Could not connect to the analysis server. Please ensure the backend is running. Details: ${error.message}`;
+                    trustScoreDisplay.textContent = '--';
+                    clearColors(); // Clear colors on network error
+                    body.classList.add('bg-f0f2f5');
+                    resultsBox.classList.remove('hidden');
+                    reviewsCard.classList.add('hidden');
+                } finally {
+                    searchButton.textContent = 'Search';
+                    searchButton.disabled = false;
+                    searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+
+            // Event listener for "Add a review" link
+            addReviewLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                reviewInputSection.classList.remove('hidden');
+                addReviewLink.classList.add('hidden');
+            });
+
+            // Event listener for "Submit Review" button
+            submitReviewButton.addEventListener('click', () => {
+                const reviewText = userReviewInput.value.trim();
+                if (reviewText) {
+                    const newReviewElement = document.createElement('div');
+                    newReviewElement.classList.add('bg-gray-100', 'p-3', 'rounded-lg', 'mb-2');
+                    newReviewElement.innerHTML = `<p class="text-gray-800 font-medium">Anonymous User:</p><p class="text-gray-700">${reviewText}</p>`;
+
+                    const noReviewsMessage = reviewsList.querySelector('p.text-gray-600');
+                    if (noReviewsMessage && noReviewsMessage.textContent === 'No reviews yet. Be the first to add one!') {
+                        reviewsList.innerHTML = '';
+                    }
+
+                    reviewsList.prepend(newReviewElement);
+
+                    userReviewInput.value = '';
+                    reviewInputSection.classList.add('hidden');
+                    addReviewLink.classList.remove('hidden');
+                } else {
+                    userReviewInput.placeholder = "Please type your review before submitting!";
+                    userReviewInput.classList.add('border-red-500');
+                    setTimeout(() => {
+                        userReviewInput.placeholder = "Type your review here...";
+                        userReviewInput.classList.remove('border-red-500');
+                    }, 2000);
+                }
+            });
+
+            // Event listener for "Cancel" button
+            cancelReviewButton.addEventListener('click', () => {
+                userReviewInput.value = '';
+                userReviewInput.classList.remove('border-red-500');
+                reviewInputSection.classList.add('hidden');
+                addReviewLink.classList.remove('hidden');
+            });
+        });
+    </script>
+
+</body>
+</html>

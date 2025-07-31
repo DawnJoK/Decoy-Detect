@@ -1,70 +1,70 @@
-import joblib
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
-from metadata_utils import fetch_app_metadata, clean_numeric_string, clean_size_string, extract_min_android_version
-import numpy as np # Import numpy for numerical operations
+import numpy as np
+import joblib
+from metadata_utils import fetch_app_metadata
+from sklearn.preprocessing import LabelEncoder
+from datetime import datetime
+import os
+
+app = Flask(__name__)
+CORS(app)
 
 # --- Configuration ---
-# Make sure this matches the model file actually saved by your training script
-MODEL_PATH = "decoy_detect.joblib" # Or "scam_detector_model.pkl" if you're using RandomForest
+MODEL_PATH = "decoy_detect.joblib"
+MODEL_FEATURES_PATH = "model_features.pkl"
 
-# Load trained model
+model_features = []
+try:
+    if os.path.exists(MODEL_FEATURES_PATH):
+        model_features = joblib.load(MODEL_FEATURES_PATH)
+        print(f"✅ Model features loaded successfully from '{MODEL_FEATURES_PATH}'!")
+        print(f"Loaded {len(model_features)} features. First 5: {model_features[:5]}")
+    else:
+        print(f"WARNING: '{MODEL_FEATURES_PATH}' not found. Attempting to get features from model or using fallback.")
+
+except Exception as e:
+    print(f"❌ Error loading model features from '{MODEL_FEATURES_PATH}': {e}")
+
 try:
     with open(MODEL_PATH, "rb") as file:
         model = joblib.load(file)
-    # print(f"✅ Model loaded successfully from {MODEL_PATH}!") # Commented out
-    # Model expects 30 features. # Commented out
-    if hasattr(model, 'feature_names_in_'):
+
+    if not model_features and hasattr(model, 'feature_names_in_') and model.feature_names_in_ is not None:
         model_features = model.feature_names_in_
+        print("✅ Model features obtained from model.feature_names_in_!")
+    elif not model_features:
+        print("CRITICAL WARNING: Model features could not be loaded or inferred. Predictions may be unreliable.")
+
+    print(f"✅ Model loaded successfully from {MODEL_PATH}!")
+    if len(model_features) > 0:
+        print(f"Model expects {len(model_features)} features.")
     else:
-        # print("Warning: Model does not have 'feature_names_in_'. Ensure 'dummy_cols' and feature list below are accurate.") # Commented out
-        model_features = np.array([
-            'Installs', 'Free', 'Size', 'Minimum Android', 'Ad Supported', 'In App Purchases',
-            'Editors Choice', 'Rating', 'Rating Count', 'description_len', 'Minimum Installs',
-            'Maximum Installs', 'Price', 'Privacy Policy', 'Category_Auto & Vehicles', 'Category_Beauty',
-            'Category_Books & Reference', 'Category_Business', 'Category_Comics', 'Category_Communication',
-            'Category_Dating', 'Category_Education', 'Category_Entertainment', 'Category_Events',
-            'Category_Finance', 'Category_Food & Drink', 'Category_Health & Fitness', 'Category_House & Home',
-            'Category_Libraries & Demo', 'Category_Lifestyle', 'Category_Maps & Navigation', 'Category_Medical',
-            'Category_Music & Audio', 'Category_News & Magazines', 'Category_Parenting', 'Category_Personalization',
-            'Category_Photography', 'Category_Productivity', 'Category_Shopping', 'Category_Social',
-            'Category_Sports', 'Category_Tools', 'Category_Travel & Local', 'Category_Video Players & Editors',
-            'Category_Weather', 'Content Rating_Everyone', 'Content Rating_Mature 17+', 'Content Rating_Teen',
-            'Currency_EUR', 'Currency_INR', 'Currency_USD', 'Developer Id_5445778848498877028',
-            'Developer Id_6023530737119560417', 'Developer Id_6507661036081498687', 'Developer Id_7060370428587635697',
-            'Developer Id_8003666014451006509', 'Developer Website_google.com', 'Released_2016-01-01',
-            'Released_2017-01-01', 'Released_2018-01-01', 'Released_2019-01-01', 'Released_2020-01-01',
-            'Released_2021-01-01', 'Released_2022-01-01', 'Released_2023-01-01', 'Released_2024-01-01',
-            'Last Updated_2024-01-01', 'Last Updated_2024-02-01', 'Last Updated_2024-03-01',
-            'Last Updated_2024-04-01', 'Last Updated_2024-05-01', 'Last Updated_2024-06-01'
-        ])
+        print("Model features list is empty. This will likely lead to prediction errors.")
 
-
-    # print(f"Model expects {len(model_features)} features.") # Commented out
 except Exception as e:
-    print(f"❌ Error loading model: {e}")
-    exit() # Exit if model cannot be loaded
+    print(f"❌ Error loading model or its features: {e}")
+    exit()
 
-# Input URL from user
-user_url = input("Paste a Play Store URL to scan: ")
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.get_json()
+    url = data.get("url", "")
 
-# Fetch metadata
-metadata = fetch_app_metadata(user_url)
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
 
-# Check for errors
-if "error" in metadata:
-    print("❌ Error while fetching metadata:", metadata["error"])
-    if "details" in metadata:
-        print("Details:", metadata["details"])
-else:
-    # print("✅ Metadata fetched successfully!") # Commented out
-    # print("Raw metadata:", metadata) # Uncomment to see all raw fetched data if needed
+    metadata = fetch_app_metadata(url)
+    print(f"\n--- Fetched Metadata for {url}: ---")
+    print(metadata)
 
-    # Prepare data for prediction
-    # Create a DataFrame from the fetched metadata
-    # Ensure keys match expected column names (e.g., 'genre' from scraper is 'Category')
-    # Use a list of dicts to handle single row DataFrames correctly
+    if "error" in metadata:
+        print(f"Error fetching metadata: {metadata['error']} - Details: {metadata.get('details', '')}")
+        return jsonify({"error": metadata["error"], "details": metadata.get("details", "")}), 500
+
     input_data = [{
-        "Category": metadata.get('genre'), # 'genre' from scraper usually maps to 'Category'
+        "Category": metadata.get('genre'),
         "Installs": metadata.get('installs'),
         "Free": metadata.get('free'),
         "Size": metadata.get('size'),
@@ -73,155 +73,167 @@ else:
         "Ad Supported": metadata.get('adSupported'),
         "In App Purchases": metadata.get('inAppPurchases'),
         "Editors Choice": metadata.get('editorsChoice'),
-        # Add other numerical features that were part of your original training,
-        # e.g., 'score', 'ratings', 'description_len', if they were used without get_dummies
-        "Rating": metadata.get('score'), # Mapping 'score' to 'Rating'
-        "Rating Count": metadata.get('ratings'), # Mapping 'ratings' to 'Rating Count'
+        "Rating": metadata.get('score'),
+        "Rating Count": metadata.get('ratings'),
         "description_len": metadata.get('description_len'),
-        # Other numericals, if they were used directly:
         "Minimum Installs": metadata.get('minInstalls'),
         "Maximum Installs": metadata.get('maxInstalls'),
         "Price": metadata.get('price'),
-        # For 'Currency', 'Developer Id', 'Developer Website', 'Released', 'Last Updated', 'Privacy Policy'
-        # these would also need to be included if they were used for get_dummies
         "Currency": metadata.get('currency'),
         "Developer Id": metadata.get('developerId'),
         "Developer Website": metadata.get('developerWebsite'),
         "Released": metadata.get('released'),
         "Last Updated": metadata.get('updated'),
-        "Privacy Policy": metadata.get('privacyPolicy') # This is a URL, probably needs to be boolean (has_policy)
+        "Privacy Policy": metadata.get('privacyPolicy'),
+        "App Name": metadata.get('title'),
+        "App Id": metadata.get('appId'),
+        "Developer Email": metadata.get('developerEmail'),
+        "Scraped Time": None
     }]
-    input_df = pd.DataFrame(input_data)
+    df = pd.DataFrame(input_data)
+    print(f"\n--- DataFrame after initial metadata load: ---")
+    print(df)
 
-    # --- Replicate Preprocessing from Training Script ---
-    # 1. Handle 'Privacy Policy': Convert URL to boolean (presence of URL means True)
-    input_df['Privacy Policy'] = input_df['Privacy Policy'].apply(lambda x: x is not None and x != '')
+    df['is_scam_rule_based'] = 0
 
-    # 2. Convert boolean-like columns to 0/1 (int)
-    for col in ['Free', 'Ad Supported', 'In App Purchases', 'Editors Choice', 'Privacy Policy']:
-        if col in input_df.columns: # Check if column exists before converting
-            input_df[col] = input_df[col].astype(int)
+    rule1 = (df['Rating'] == 5.0) & (df['Maximum Installs'] < 1000)
+    rule2 = df['Developer Website'].isna() | df['Developer Email'].isna()
+    rule3 = df['Developer Email'].astype(str).str.contains('@gmail', na=False)
+    rule4 = df['App Name'].astype(str).str.contains(r'(?i)gift|cash|free|win|earn|money|rich|giveaway', na=False)
+    rule5 = (df['Price'] == 0) & (df['In App Purchases'].astype(str).str.lower() == 'true')
 
-    # 3. Handle potential NaN values and ensure numerical types
+    df.loc[(rule1 & rule2 & rule3) | rule4 | rule5, 'is_scam_rule_based'] = 1
+
+    df['Released'] = pd.to_datetime(df['Released'], errors='coerce')
+    df['Last Updated'] = pd.to_datetime(df['Last Updated'], errors='coerce')
+
+    fixed_current_timestamp = pd.Timestamp(datetime.now().date())
+    df['app_age'] = (fixed_current_timestamp - df['Released']).dt.days / 365
+    df['days_since_update'] = (fixed_current_timestamp - df['Last Updated']).dt.days
+
+    df['has_policy'] = df['Privacy Policy'].notna().astype(int)
+
+    for col in ['Free', 'Ad Supported', 'In App Purchases', 'Editors Choice']:
+        if col in df.columns:
+            df[col] = df[col].astype(int)
+
     numerical_cols = ['Installs', 'Size', 'Minimum Android', 'Rating', 'Rating Count', 'description_len',
-                      'Minimum Installs', 'Maximum Installs', 'Price']
+                      'Minimum Installs', 'Maximum Installs', 'Price', 'app_age', 'days_since_update']
     for col in numerical_cols:
-        if col in input_df.columns:
-            # Convert to numeric, errors='coerce' will turn non-convertible values into NaN
-            input_df[col] = pd.to_numeric(input_df[col], errors='coerce').fillna(0) # Fill NaN with 0
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-    # Handle categorical columns: fill NaNs with 'Unknown'
-    categorical_cols = ['Category', 'Content Rating', 'Currency', 'Developer Id', 'Developer Website', 'Released', 'Last Updated']
-    for col in categorical_cols:
-        if col in input_df.columns:
-            input_df[col] = input_df[col].fillna('Unknown')
+    cols_to_drop_training = [
+        'App Name', 'App Id', 'Developer Email', 'Developer Website',
+        'Released', 'Last Updated', 'Scraped Time', 'Privacy Policy',
+        'Developer Id', 'Currency'
+    ]
+    columns_to_remove_from_training = [col for col in df.columns if
+                                        col.startswith("20") or
+                                        col.startswith("Apr") or
+                                        col.startswith("Dec") or
+                                        "http" in str(col) or
+                                        "False" in str(col) or
+                                        col == "Everyone"]
 
-    # Important: Drop columns that were excluded from get_dummies in training
-    # Based on your model_training.py, these were 'App Id', 'Developer Email', 'App Name', 'Scraped Time'
-    columns_to_drop_before_dummies = ["appId", "developerEmail", "title", "Scraped Time", "developer", "reviews"] # Adjusted based on fetch_app_metadata output and original training logic
-    for col in columns_to_drop_before_dummies:
-        if col in input_df.columns: # Check if column exists before dropping
-            input_df = input_df.drop(columns=[col])
+    all_cols_to_drop = list(set(cols_to_drop_training + columns_to_remove_from_training))
+    df.drop(columns=all_cols_to_drop, inplace=True, errors='ignore')
 
+    categorical_cols_for_ohe = [col for col in df.columns if df[col].dtype == 'object']
+    df_encoded = pd.get_dummies(df, columns=categorical_cols_for_ohe, drop_first=True)
 
-    # 4. Apply One-Hot Encoding (pd.get_dummies)
-    # Get list of columns to dummify based on the current DataFrame, excluding numerical and boolean-converted ones
-    # Make sure this list reflects how your training data was processed
-    cols_to_dummify = [col for col in input_df.columns if input_df[col].dtype == 'object'] # Object dtype typically means strings/categorical
+    if 'Free' in df_encoded.columns and df_encoded['Free'].dtype == 'bool':
+        df_encoded['Free'] = df_encoded['Free'].astype(int)
 
-    # You MUST ensure that the categories seen here are aligned with the categories seen during training.
-    # The safest way is to save the actual `columns` of your training X_train AFTER get_dummies,
-    # or to use a `ColumnTransformer` with `handle_unknown='ignore'`.
-    # For now, we rely on the `model_features` alignment below.
-    input_df_encoded = pd.get_dummies(input_df, columns=cols_to_dummify, drop_first=True)
+    if len(model_features) == 0:
+        print("ERROR: model_features is empty. Cannot align input DataFrame. This is a critical error.")
+        return jsonify({"error": "Model features not loaded. Cannot make prediction."}), 500
 
-
-    # 5. Align columns with the model's expected features (model_features)
-    # This is the most robust way to ensure feature consistency.
-    missing_cols = set(model_features) - set(input_df_encoded.columns)
+    missing_cols = set(model_features) - set(df_encoded.columns)
     for c in missing_cols:
-        input_df_encoded[c] = 0 # Add missing one-hot encoded columns as 0
+        df_encoded[c] = 0
 
-    # Ensure the order of columns and presence matches the training data
-    # Filter to only features the model expects and reorder them
-    # Make sure all columns in model_features are also in input_df_encoded (after adding missing)
-    final_input_df = input_df_encoded[model_features]
+    extra_cols = set(df_encoded.columns) - set(model_features)
+    df_encoded = df_encoded.drop(columns=list(extra_cols))
 
-    # Debugging: Print final input DataFrame info
-    # print("\nFinal input DataFrame for prediction:") # Commented out
-    # print(final_input_df.head()) # Commented out
-    # print("Shape:", final_input_df.shape) # Commented out
-    # print("Columns:", final_input_df.columns.tolist()) # Commented out
+    final_input_df = df_encoded[model_features]
 
+    print(f"\n--- Final Input DataFrame for Prediction: ---")
+    print(final_input_df)
+    print(f"\n--- Final Input DataFrame Columns: ---")
+    print(final_input_df.columns.tolist())
 
-    # Predict
     try:
         prediction = model.predict(final_input_df)[0]
-        prediction_proba = model.predict_proba(final_input_df)[0] # Get probabilities
+        proba = model.predict_proba(final_input_df)[0]
+        print(f"\n--- Prediction Probabilities: {proba} ---")
 
-        # Display result # Commented out
-        # print("\n--- Prediction Result ---") # Commented out
-        if prediction == 1:
-            model_outcome = "SCAM"
-            model_confidence = prediction_proba[1]
-            # print(f"🔴 This app is likely a **SCAM** ❌ (Confidence: {model_confidence:.2%})") # Commented out
-        else:
-            model_outcome = "SAFE"
-            model_confidence = prediction_proba[0]
-            # print(f"🟢 This app is likely **SAFE** ✅ (Confidence: {model_confidence:.2%})") # Commented out
+        probability_safe = proba[0]
+        confidence_in_predicted_class = proba[prediction]
 
-        # --- Final Download Recommendation ---
-        fetched_score = metadata.get('score', 0.0) # Get the fetched score
-        fetched_installs = metadata.get('installs', 0) # Get the fetched installs
-        fetched_ratings_count = metadata.get('ratings', 0) # Get the fetched ratings count
+        # --- Recommendation Logic (using rule-based flag and model prediction) ---
+        recommendation = ""
+        recommendation_category = "GREEN" # Default category
+        fetched_score = metadata.get('score', 0.0)
+        fetched_installs = metadata.get('installs', 0)
+        fetched_ratings_count = metadata.get('ratings', 0)
 
-        # Print the fetched details
-        print(f"Fetched Score: {fetched_score}")
-        print(f"Fetched Ratings Count: {fetched_ratings_count}")
-        print(f"Fetched Installs: {fetched_installs}")
-        print("\n--- Download Recommendation ---")
-
-
-        # Rule 1: Check for very low rating (e.g., less than 2.0 out of 5)
         is_very_low_rating = False
-        if isinstance(fetched_score, (int, float)) and fetched_score < 2.0: # You can adjust this threshold (e.g., 2.5)
+        if isinstance(fetched_score, (int, float)) and fetched_score < 2.0:
             is_very_low_rating = True
 
-        # Rule 2: Low downloads but high rating (potential for fake reviews/artificial popularity)
         is_suspicious_downloads_ratings = False
         if isinstance(fetched_installs, (int, float)) and isinstance(fetched_score, (int, float)):
-            # Example thresholds: less than 10,000 installs AND rating 4.0 or higher
             if fetched_installs < 10000 and fetched_score >= 4.0:
                 is_suspicious_downloads_ratings = True
 
-        # Rule 3: High installs but disproportionately low ratings count
         is_discrepant_installs_ratings_count = False
         if isinstance(fetched_installs, (int, float)) and isinstance(fetched_ratings_count, (int, float)):
-            # Example thresholds: 1 Million+ installs AND less than 10,000 ratings
             if fetched_installs >= 1_000_000 and fetched_ratings_count < 10000:
                 is_discrepant_installs_ratings_count = True
 
-
-        # Determine final recommendation to print
+        # Determine the recommendation and its category
         if is_very_low_rating:
-            print("🔴 **RED FLAG:** This app has a very low rating. It is **NOT RECOMMENDED** to download.\n")
+            recommendation = "🔴 RED FLAG: This app has a very low rating. It is NOT RECOMMENDED to download."
+            recommendation_category = "RED"
         elif is_suspicious_downloads_ratings:
-            print("🟠 **ORANGE FLAG:** This app has relatively low downloads but a surprisingly high rating.")
-            print("It is **RECOMMENDED to proceed with caution**.\n")
+            recommendation = "🟠 ORANGE FLAG: This app has relatively low downloads but a surprisingly high rating. It is RECOMMENDED to proceed with caution."
+            recommendation_category = "ORANGE"
         elif is_discrepant_installs_ratings_count:
-            print("🟠 **ORANGE FLAG:** This app has a very high number of installs but disproportionately few ratings.")
-            print("It is **RECOMMENDED to proceed with caution**.\n")
-        elif model_outcome == "SCAM":
-            print("🔴 **RED FLAG:** Based on the model's prediction, it is **NOT RECOMMENDED** to download.\n")
-        else:
-            print("🟢 **GREEN FLAG:** Based on the model's prediction, it appears **SAFE to download.**\n")
-            # print("Always exercise caution and check permissions before downloading any app.") # Can be uncommented if desired
+            recommendation = "🟠 ORANGE FLAG: This app has a very high number of installs but disproportionately few ratings. It is RECOMMENDED to proceed with caution."
+            recommendation_category = "ORANGE"
+        elif prediction == 1: # If model predicts SCAM (class 1)
+            recommendation = "🔴 RED FLAG: Based on the model's prediction, it is NOT RECOMMENDED to download."
+            recommendation_category = "RED"
+        else: # If model predicts SAFE (class 0)
+            recommendation = "🟢 GREEN FLAG: Based on the model's prediction, it appears SAFE to download."
+            recommendation_category = "GREEN"
 
+        # FIX: Make trust_score deterministic based on recommendation_category
+        # Use fixed values or a simple derivation for consistency
+        if recommendation_category == "RED":
+            trust_score = 20 # Fixed low score for RED
+        elif recommendation_category == "ORANGE":
+            trust_score = 60 # Fixed medium score for ORANGE
+        else: # GREEN
+            # For GREEN, use the model's probability of being safe, rounded
+            trust_score = round(probability_safe * 100)
+            # Ensure it's at least 70 if it's green, to align with color logic
+            if trust_score < 70:
+                trust_score = 70
+
+
+        return jsonify({
+            "prediction": int(prediction),
+            "trust_score": trust_score, # Now this will be deterministic based on category
+            "recommendation": recommendation,
+            "confidence": round(confidence_in_predicted_class, 4),
+            "recommendation_category": recommendation_category # New field to send to frontend
+        })
 
     except Exception as e:
         print(f"❌ Error during prediction: {e}")
-        # print("This often means the input features do not match the model's expectations.") # Commented out
-        # print("Debug Info: Input DataFrame columns:", final_input_df.columns.tolist()) # Commented out
-        # print("Debug Info: Expected Model features:", model_features.tolist()) # Commented out
-        # print("Missing in Input but expected by model:", set(model_features) - set(final_input_df.columns)) # Commented out
-        # print("In Input but not expected by model:", set(final_input_df.columns) - set(model_features)) # Commented out
+        return jsonify({"error": "Prediction failed", "details": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
