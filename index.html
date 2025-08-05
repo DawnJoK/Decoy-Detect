@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Search UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.5s ease;
+            padding-bottom: 2rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        .search-container {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            width: 100%;
+            max-width: 1024px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            position: relative;
+            max-width: 50%;
+            max-height: 90%;
+            overflow: auto;
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.3s ease;
+        }
+        .modal-close-button:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="w-full bg-blue-700 p-4 shadow-md">
+        <div class="max-w-full px-4 flex items-center justify-between">
+            <a href="#" id="logoLink" class="flex items-center text-white text-2xl font-bold rounded-lg px-3 py-1 hover:bg-blue-600 transition duration-300">
+                <img
+                    src="https://raw.githubusercontent.com/DawnJoK/Decoy-Detect/refs/heads/main/screenshot/Gemini_Generated_Image_gcngw9gcngw9gcng.png"
+                    alt="Decoy Detect Logo"
+                    class="h-20 w-20 mr-2 object-contain rounded-lg"
+                    onerror="this.onerror=null;this.src='https://placehold.co/80x80/cccccc/333333?text=Logo';"
+                >
+                Decoy Detect
+            </a>
+            <div class="flex items-center space-x-4">
+                <button
+                    id="tutorialButton"
+                    class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Tutorial
+                </button>
+                <button
+                    id="helpButton"
+                    class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Help
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="search-container bg-white p-8 rounded-xl shadow-lg text-center">
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6">Paste a URL to search</h1>
+
+        <div class="input-group flex flex-col sm:flex-row gap-4 mb-6">
+            <input
+                type="url"
+                id="urlInput"
+                class="url-input flex-grow p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-300 ease-in-out"
+                placeholder="e.g., https://play.google.com/store/apps/details?id=com.example.app"
+            >
+            <button
+                id="searchButton"
+                class="search-button bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105"
+            >
+                Search
+            </button>
+        </div>
+
+        <div id="resultsBox" class="hidden bg-gray-50 p-6 rounded-lg border border-gray-200 text-left mt-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Analysis Results</h2>
+            <div class="mb-4">
+                <p class="text-lg font-medium text-gray-800">Trust Score: <span id="trustScore" class="text-blue-600 font-bold">--</span>/100</p>
+            </div>
+            <div>
+                <p class="text-lg font-medium text-gray-800 mb-2">Note:</p>
+                <textarea
+                    id="commentSection"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-300 ease-in-out"
+                    rows="5"
+                    readonly
+                ></textarea>
+            </div>
+        </div>
+
+        <div id="reviewsCard" class="hidden bg-white p-8 rounded-xl shadow-lg mt-6 text-left">
+            <h3 class="text-2xl font-semibold text-gray-800 mb-4">Community Reviews</h3>
+            <div id="reviewsList" class="mb-4">
+                <p class="text-gray-600">No reviews yet. Be the first to add one!</p>
+            </div>
+            <p class="text-gray-600 mt-2">
+                <a href="#" id="addReviewLink" class="text-blue-600 hover:underline font-medium">Click here to add a review</a>
+            </p>
+
+            <div id="reviewInputSection" class="hidden mt-4">
+                <textarea
+                    id="userReviewInput"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-300 ease-in-out resize-y"
+                    rows="4"
+                    placeholder="Type your review here..."
+                ></textarea>
+                <button
+                    id="submitReviewButton"
+                    class="mt-3 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Submit Review
+                </button>
+                <button
+                    id="cancelReviewButton"
+                    class="mt-3 ml-2 bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-50 transition duration-300 ease-in-out"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="logoModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="closeModalButton" class="modal-close-button">&times;</button>
+            <img
+                src="https://raw.githubusercontent.com/DawnJoK/Decoy-Detect/refs/heads/main/screenshot/Gemini_Generated_Image_gcngw9gcngw9gcng.png"
+                alt="Decoy Detect Logo"
+                class="w-1/2 h-1/2 mx-auto object-contain rounded-lg"
+                onerror="this.onerror=null;this.src='https://placehold.co/160x160/cccccc/333333?text=Logo';"
+            >
+            </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlInput = document.getElementById('urlInput');
+            const searchButton = document.getElementById('searchButton');
+            const resultsBox = document.getElementById('resultsBox');
+            const trustScoreDisplay = document.getElementById('trustScore');
+            const commentSection = document.getElementById('commentSection');
+            const body = document.body;
+            const reviewsCard = document.getElementById('reviewsCard');
+            const helpButton = document.getElementById('helpButton');
+            const tutorialButton = document.getElementById('tutorialButton');
+            const logoLink = document.getElementById('logoLink');
+            const logoModal = document.getElementById('logoModal');
+            const closeModalButton = document.getElementById('closeModalButton');
+
+            const addReviewLink = document.getElementById('addReviewLink');
+            const reviewInputSection = document.getElementById('reviewInputSection');
+            const userReviewInput = document.getElementById('userReviewInput');
+            const submitReviewButton = document.getElementById('submitReviewButton');
+            const cancelReviewButton = document.getElementById('cancelReviewButton');
+            const reviewsList = document.getElementById('reviewsList');
+
+            const FLASK_API_URL = 'http://127.0.0.1:5000/predict';
+            const ADD_COMMENT_API_URL = 'http://127.0.0.1:5000/add_comment';
+            const GET_COMMENTS_API_URL = 'http://127.0.0.1:5000/get_comments';
+
+            let currentUrl = ''; // To store the URL for which comments are being displayed/added
+
+            function clearColors() {
+                const colorClasses = ['bg-red-700', 'bg-orange-500', 'bg-green-700', 'bg-f0f2f5',
+                                      'text-red-600', 'text-orange-800', 'text-green-300', 'text-blue-600', 'text-white'];
+                body.classList.remove(...colorClasses);
+                trustScoreDisplay.classList.remove(...colorClasses);
+            }
+
+            async function fetchAndDisplayComments(url) {
+                console.log(`DEBUG (Frontend): Attempting to fetch comments for URL: ${url}`); // Added debug
+                reviewsList.innerHTML = '<p class="text-gray-600">Loading comments...</p>';
+                try {
+                    const response = await fetch(`${GET_COMMENTS_API_URL}?url=${encodeURIComponent(url)}`);
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        console.log('DEBUG (Frontend): Fetched comments data:', data); // Added debug
+                        if (data.comments && data.comments.length > 0) {
+                            reviewsList.innerHTML = '';
+                            data.comments.forEach(commentData => {
+                                const newReviewElement = document.createElement('div');
+                                newReviewElement.classList.add('bg-gray-100', 'p-3', 'rounded-lg', 'mb-2');
+                                const timestamp = commentData.timestamp ? new Date(commentData.timestamp).toLocaleString() : 'Unknown date';
+                                newReviewElement.innerHTML = `
+                                    <p class="text-gray-800 font-medium">Anonymous User <span class="text-gray-500 text-sm">(${timestamp}):</span></p>
+                                    <p class="text-gray-700">${commentData.comment}</p>
+                                `;
+                                reviewsList.appendChild(newReviewElement);
+                            });
+                        } else {
+                            reviewsList.innerHTML = '<p class="text-gray-600">No reviews yet. Be the first to add one!</p>';
+                        }
+                    } else {
+                        reviewsList.innerHTML = `<p class="text-red-500">Error loading comments: ${data.error || 'Unknown error'}</p>`;
+                        console.error('DEBUG (Frontend): Failed to fetch comments response:', data); // Added debug
+                    }
+                } catch (error) {
+                    reviewsList.innerHTML = `<p class="text-red-500">Network error fetching comments.</p>`;
+                    console.error('DEBUG (Frontend): Network error fetching comments:', error); // Added debug
+                }
+            }
+
+
+            helpButton.addEventListener('click', () => {
+                window.location.href = 'faq-page.html';
+            });
+
+            tutorialButton.addEventListener('click', () => {
+                window.location.href = 'tutorial-page.html';
+            });
+
+            logoLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                logoModal.classList.remove('hidden');
+            });
+
+            closeModalButton.addEventListener('click', () => {
+                logoModal.classList.add('hidden');
+            });
+
+            logoModal.addEventListener('click', (event) => {
+                if (event.target === logoModal) {
+                    logoModal.classList.add('hidden');
+                }
+            });
+
+            searchButton.addEventListener('click', async () => {
+                const url = urlInput.value.trim();
+                currentUrl = url; // Store the current URL initially
+
+                if (url === '') {
+                    clearColors();
+                    body.classList.add('bg-f0f2f5');
+                    resultsBox.classList.remove('bg-red-100', 'bg-yellow-100', 'bg-green-100');
+                    resultsBox.classList.add('bg-gray-50');
+                    commentSection.value = 'Please enter a URL to analyze.';
+                    trustScoreDisplay.textContent = '--';
+                    trustScoreDisplay.classList.add('text-blue-600');
+                    resultsBox.classList.remove('hidden');
+                    reviewsCard.classList.add('hidden');
+                    return;
+                }
+
+                searchButton.textContent = 'Analyzing...';
+                searchButton.disabled = true;
+                searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+                resultsBox.classList.add('hidden');
+                reviewsCard.classList.add('hidden');
+
+                clearColors();
+                body.classList.add('bg-f0f2f5');
+                resultsBox.classList.remove('bg-red-100', 'bg-yellow-100', 'bg-green-100', 'bg-gray-50');
+                resultsBox.classList.add('bg-white');
+                trustScoreDisplay.classList.add('text-blue-600');
+
+                try {
+                    const response = await fetch(FLASK_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ url: url }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        const trustScore = data.trust_score;
+                        const recommendation = data.recommendation;
+                        const recommendationCategory = data.recommendation_category;
+                        // IMPORTANT: Update currentUrl with the one returned by the backend, as it might be normalized or processed
+                        currentUrl = data.url_for_comments || url;
+                        console.log(`DEBUG (Frontend): Prediction successful. currentUrl set to: ${currentUrl}`); // Added debug
+
+                        trustScoreDisplay.textContent = trustScore;
+                        commentSection.value = recommendation;
+
+                        resultsBox.classList.remove('hidden');
+                        reviewsCard.classList.remove('hidden');
+
+                        // Fetch and display comments for the current URL
+                        fetchAndDisplayComments(currentUrl); // This is where comments are loaded!
+
+                        clearColors();
+
+                        if (recommendationCategory === "RED") {
+                            body.classList.add('bg-red-700');
+                            trustScoreDisplay.classList.add('text-red-600');
+                        } else if (recommendationCategory === "ORANGE") {
+                            body.classList.add('bg-orange-500');
+                            trustScoreDisplay.classList.add('text-orange-800');
+                        } else { // GREEN
+                            body.classList.add('bg-green-700');
+                            trustScoreDisplay.classList.add('text-green-300');
+                        }
+                    } else {
+                        commentSection.value = `Error: ${data.error || 'Something went wrong.'} ${data.details || ''}`;
+                        trustScoreDisplay.textContent = '--';
+                        clearColors();
+                        body.classList.add('bg-f0f2f5');
+                        resultsBox.classList.remove('hidden');
+                        reviewsCard.classList.add('hidden');
+                        console.error('DEBUG (Frontend): Prediction failed response:', data); // Added debug
+                    }
+                } catch (error) {
+                    commentSection.value = `Network Error: Could not connect to the analysis server. Please ensure the backend is running. Details: ${error.message}`;
+                    trustScoreDisplay.textContent = '--';
+                    clearColors();
+                    body.classList.add('bg-f0f2f5');
+                    resultsBox.classList.remove('hidden');
+                    reviewsCard.classList.add('hidden');
+                    console.error('DEBUG (Frontend): Network error during prediction:', error); // Added debug
+                } finally {
+                    searchButton.textContent = 'Search';
+                    searchButton.disabled = false;
+                    searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+
+            addReviewLink.addEventListener('click', (event) => {
+                event.preventDefault();
+                reviewInputSection.classList.remove('hidden');
+                addReviewLink.classList.add('hidden');
+            });
+
+            submitReviewButton.addEventListener('click', async () => {
+                const reviewText = userReviewInput.value.trim();
+
+                if (!reviewText) {
+                    userReviewInput.placeholder = "Please type your review before submitting!";
+                    userReviewInput.classList.add('border-red-500');
+                    setTimeout(() => {
+                        userReviewInput.placeholder = "Type your review here...";
+                        userReviewInput.classList.remove('border-red-500');
+                    }, 2000);
+                    return;
+                }
+
+                if (!currentUrl) {
+                    alert('Please search for a URL first before adding a comment.');
+                    return;
+                }
+
+                console.log(`DEBUG (Frontend): Submitting review for URL: ${currentUrl}, Comment: ${reviewText}`); // Added debug
+                try {
+                    const response = await fetch(ADD_COMMENT_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ url: currentUrl, comment: reviewText }),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        alert('Review submitted successfully!');
+                        userReviewInput.value = '';
+                        reviewInputSection.classList.add('hidden');
+                        addReviewLink.classList.remove('hidden');
+                        // Re-fetch and display comments to show the newly added one
+                        fetchAndDisplayComments(currentUrl);
+                    } else {
+                        alert(`Failed to submit review: ${data.error || 'Unknown error'}`);
+                        console.error('DEBUG (Frontend): Failed to submit review response:', data); // Added debug
+                    }
+                } catch (error) {
+                    alert('Network error: Could not submit review. Please ensure the backend is running and MySQL is connected.');
+                    console.error('DEBUG (Frontend): Network error submitting review:', error); // Added debug
+                }
+            });
+
+            cancelReviewButton.addEventListener('click', () => {
+                userReviewInput.value = '';
+                userReviewInput.classList.remove('border-red-500');
+                reviewInputSection.classList.add('hidden');
+                addReviewLink.classList.remove('hidden');
+            });
+        });
+    </script>
+
+</body>
+</html>
